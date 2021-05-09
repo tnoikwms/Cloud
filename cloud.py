@@ -98,6 +98,7 @@ def transmission(wv,wl,T):
             dTdt = -Q*(dwvdt-dwldt)
     return [dwvdt,dwldt,dTdt]
 
+#ここがだめ(たぶん）
 def impres(vx,vy):
     for i in range(1,Ny-2):
         for j in range(Nx-2):
