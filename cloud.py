@@ -130,14 +130,6 @@ def impres(vx,vy):
     imy[Ny-1,:] = 0
     return [imx,imy]
 
-
-def normal_v(vx,vy):
-    for i in range(Ny-1):
-        for j in range(Nx-1):
-            vx[i,j] = vx[i,j]/(Nx-1) if np.abs(vx[i,j]) >1 else vx[i,j]
-            vy[i,j] = vy[i,j]/(Ny-1) if np.abs(vy[i,j]) >1 else vy[i,j]
-    return [vx,vy]
-
 cloud = cal()
 
 for time in range(maxIter):
@@ -155,6 +147,4 @@ for time in range(maxIter):
     cloud.adv()
     cloud.no()
     cloud.boundary()
-
-#vyがだんだん小さくなっていく．-1を超えるの良くないよね
 
