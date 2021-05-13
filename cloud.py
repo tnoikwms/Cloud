@@ -45,10 +45,14 @@ class cal():
     def buoyancy_dragging(self):
         self.vy_1 = self.vy+cp*(np.roll(self.T,+1,1)+np.roll(self.T,-1,1)-2*self.T)/2 -gamma*self.wl*(self.vy -V)
         self.vx_1 = self.vx
+        self.vx_1[abs(self.vx_1)>1] = self.vx_1[abs(self.vx_1)>1]/(Nx-1)
+        self.vy_1[abs(self.vy_1)>1] = self.vy_1[abs(self.vy_1)>1]/(Nx-1)
     def viscosity_impres(self):
         self.imp = impres(self.vx_1,self.vy_1)
         self.vx_2 = self.vx_1 + nu*lap(self.vx_1) + eta*self.imp[0]
         self.vy_2 = self.vy_1 + nu*lap(self.vy_1) + eta*self.imp[1]
+        self.vx_2[abs(self.vx_2)>1] = self.vx_2[abs(self.vx_2)>1]/(Nx-1)
+        self.vy_2[abs(self.vy_2)>1] = self.vy_2[abs(self.vy_2)>1]/(Nx-1)
     def t_diff_expansion(self):
         self.T_1 = self.T + lam*lap(self.T)-beta*self.vy
     def diff(self):
@@ -64,10 +68,15 @@ class cal():
         self.wv = advection(self.wv,self.vx_2,self.vy_2-V)
         self.vx = advection(self.vx_2,self.vx_2,self.vy_2-V)
         self.vy = advection(self.vy_2,self.vx_2,self.vy_2-V)
-    def normalize(self):
-        norm = normal(self.wl,self.wv)
-        self.wl = norm[0]
-        self.wv = norm[1]
+
+        self.vx[abs(self.vx)>1] = self.vx[abs(self.vx)>1]/(Nx-1)
+        self.vy[abs(self.vy)>1] = self.vy[abs(self.vy)>1]/(Nx-1)
+    def no(self):
+        self.wv[self.wv<0] =0
+        self.wl[self.wl<0] = 0
+        self.sum = np.sum(self.wv)+np.sum(self.wl)
+        self.wl = self.wl/(self.sum/W)
+        self.wv = self.wv/(self.sum/W)
     def boundary(self):
         self.vx[:,0] = self.vx[:,self.Nx-1]
         self.vy[:,0] = self.vy[:,self.Nx-1]
@@ -85,7 +94,6 @@ def lap(A):
     return (np.roll(A,+1,1)+np.roll(A,-1,1)+np.roll(A,+1,0)+np.roll(A,-1,0)-4*A)/4
 
 
-#移流よくわからんのよ
 def advection(A,vx,vy):
     for i in range(Ny-1):
         for j in range(Nx-1):
@@ -98,16 +106,17 @@ def advection(A,vx,vy):
 def transition(wv,wl,T):
     for i in range(Ny):
         for j in range(Nx):
-            w_sat = 0.002*np.exp(-7.7*(0.06/(T[i,j]-1)))
+            w_sat = 0.2*1e-6*np.exp(-(0.002/(T[i,j]+T0)))
             if w_sat > wl[i,j]+wv[i,j]:
                 dwvdt = a*(wv[i,j]-w_sat)
                 dwldt = -a*(wv[i,j]-w_sat)
                 dTdt = -Q*(dwvdt-dwldt)
-                print("evapolate") if i==10 and j ==10 else None
+                print("do",w_sat) if i==10 and j == 10 else None
             else:
                 dwvdt = a*(wv[i,j]-(wl[i,j]+wv[i,j]))
                 dwldt = -a*(wv[i,j]-(wl[i,j]+wv[i,j]))
                 dTdt = -Q*(dwvdt-dwldt)
+    #print(np.amin(w_sat))
     return [dwvdt,dwldt,dTdt]
 
 def impres(vx,vy):
@@ -121,26 +130,31 @@ def impres(vx,vy):
     imy[Ny-1,:] = 0
     return [imx,imy]
 
-def normal(wl,wv):
-    sum = np.sum(wv)+np.sum(wl)
-    wl = wl/(sum/W)
-    wv = wv/(sum/W)
-    return [wl,wv]
+
+def normal_v(vx,vy):
+    for i in range(Ny-1):
+        for j in range(Nx-1):
+            vx[i,j] = vx[i,j]/(Nx-1) if np.abs(vx[i,j]) >1 else vx[i,j]
+            vy[i,j] = vy[i,j]/(Ny-1) if np.abs(vy[i,j]) >1 else vy[i,j]
+    return [vx,vy]
 
 cloud = cal()
 
 for time in range(maxIter):
-    print(time,np.amin(cloud.wv),np.amin(cloud.wl),np.amax(cloud.vy),np.amin(cloud.vy),np.amin(cloud.T))
+    print(time,np.amax(cloud.vy),np.amin(cloud.vy),np.amin(cloud.T))
     cloud.boundary()
-    #print(cloud.T)
+    #print(np.amax(cloud.T))
     cloud.t_diff_expansion()
-    cloud.normalize()
+    cloud.no()
     cloud.buoyancy_dragging()
     cloud.viscosity_impres()
     cloud.diff()
-    cloud.normalize()
+    cloud.no()
     cloud.transition()
-    cloud.normalize()
+    cloud.no()
     cloud.adv()
-    cloud.normalize()
+    cloud.no()
     cloud.boundary()
+
+#vyがだんだん小さくなっていく．-1を超えるの良くないよね
+
