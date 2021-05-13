@@ -1,13 +1,13 @@
 from typing import AnyStr
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as nimation
+import matplotlib.animation as animation
 from matplotlib import cm
 
-maxIter = 100
+maxIter = 1000
 #lattice size
-Nx = 80
-Ny = 40
+Nx = 100
+Ny = 50
 #heat diffusion
 lam = 0.4 #0.1 to 0.4
 #viscosity
@@ -42,6 +42,8 @@ class cal():
         self.wl = np.zeros((self.Ny,self.Nx))
         self.wl[self.Ny-1,:] = W/(self.Ny-1)
         self.T[self.Ny-1,:] = T0
+        self.x = np.arange(self.Nx)
+        self.y = np.arange(self.Ny)
     def buoyancy_dragging(self):
         self.vy_1 = self.vy+cp*(np.roll(self.T,+1,1)+np.roll(self.T,-1,1)-2*self.T)/2 -gamma*self.wl*(self.vy -V)
         self.vx_1 = self.vx
@@ -89,6 +91,13 @@ class cal():
         self.T[self.Ny-1,:] = T0
         self.T[0,:] = self.T[1,:]
         self.wl[0,:] = self.wv[0,:] =0
+    def storage(self):
+        self.fig = plt.figure()
+        self.ims = []
+    def animation(self):
+        self.im  = plt.contourf(self.x,self.y,self.wl,10,cmap=cm.jet)
+        self.add_art = self.im.collections
+        self.ims.extend([self.add_art])
 
 def lap(A):
     return (np.roll(A,+1,1)+np.roll(A,-1,1)+np.roll(A,+1,0)+np.roll(A,-1,0)-4*A)/4
@@ -106,12 +115,12 @@ def advection(A,vx,vy):
 def transition(wv,wl,T):
     for i in range(Ny):
         for j in range(Nx):
-            w_sat = 0.2*1e-6*np.exp(-(0.002/(T[i,j]+T0)))
+            w_sat = 0.2*1e-5*np.exp(-(0.02/(T[i,j]+T0)))
             if w_sat > wl[i,j]+wv[i,j]:
                 dwvdt = a*(wv[i,j]-w_sat)
                 dwldt = -a*(wv[i,j]-w_sat)
                 dTdt = -Q*(dwvdt-dwldt)
-                print("do",w_sat) if i==10 and j == 10 else None
+                #print("do",w_sat) if i==10 and j == 10 else None
             else:
                 dwvdt = a*(wv[i,j]-(wl[i,j]+wv[i,j]))
                 dwldt = -a*(wv[i,j]-(wl[i,j]+wv[i,j]))
@@ -130,10 +139,19 @@ def impres(vx,vy):
     imy[Ny-1,:] = 0
     return [imx,imy]
 
+
+def normal_v(vx,vy):
+    for i in range(Ny-1):
+        for j in range(Nx-1):
+            vx[i,j] = vx[i,j]/(Nx-1) if np.abs(vx[i,j]) >1 else vx[i,j]
+            vy[i,j] = vy[i,j]/(Ny-1) if np.abs(vy[i,j]) >1 else vy[i,j]
+    return [vx,vy]
+
 cloud = cal()
+cloud.storage()
 
 for time in range(maxIter):
-    print(time,np.amax(cloud.vy),np.amin(cloud.vy),np.amin(cloud.T))
+    #print(time,np.amax(cloud.vy),np.amin(cloud.vy),np.amin(cloud.T))
     cloud.boundary()
     #print(np.amax(cloud.T))
     cloud.t_diff_expansion()
@@ -147,4 +165,7 @@ for time in range(maxIter):
     cloud.adv()
     cloud.no()
     cloud.boundary()
+    cloud.animation()
 
+ani = animation.ArtistAnimation(cloud.fig,cloud.ims,interval=50)
+plt.show()
